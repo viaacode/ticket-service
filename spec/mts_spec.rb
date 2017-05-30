@@ -1,16 +1,16 @@
 require_relative 'spec_helper'
-require_relative '../vts'
+require_relative '../mts'
 
-VtsConfig = YAML.load <<EOF
+MtsConfig = YAML.load <<EOF
 ---
 oridmap:
     p: org1
 EOF
 
-describe Vts do
+describe Mts do
 
     let (:app) do
-        Vts.configure VtsConfig
+        Mts.configure MtsConfig
     end
 
     let (:params) {{ app: 'a',name: 'p/n',useragent: 'u',client: 'c',verb: 'v' }}

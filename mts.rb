@@ -3,7 +3,7 @@ require 'yaml'
 require 'rack'
 require_relative 'lib/ticket'
 
-class Vts
+class Mts
 
     class << self
 
@@ -55,7 +55,7 @@ class Vts
         uriparams[:name] ||= request.path_info[%r{/(.*)},1]
         @params = uriparams.merge bodyparams
 
-        @allowed_tenants = subject&.scan(%r{\bo=(\w+)})&.flatten! 
+        @allowed_tenants = subject&.scan(%r{\bo=(\w+)})&.flatten!
         @params[:app] ||= @allowed_tenants&.first
     end
 
