@@ -14,7 +14,7 @@ describe Mts do
     end
 
     let (:params) {{ app: 'a',name: 'p/n',useragent: 'u',client: 'c',verb: 'v' }}
-    let (:ticket) { instance_double('Ticket', jwt: 'jwtok', to_hash: params) } 
+    let (:ticket) { instance_double('Ticket', jwt: 'jwtok', to_hash: params) }
     before :each do
         allow(Ticket).to receive(:new) {ticket}
     end
@@ -87,6 +87,20 @@ describe Mts do
                 params_without_app = params.dup
                 params_without_app.delete(:app)
                 request '/', params: params_without_app
+            end
+            it_behaves_like 'valid request'
+        end
+        context 'x-ssl-subject ends with o' do
+            before :each do
+                header 'X-SSL-SUBJECT', 'dc=jwt,o=org1'
+                request '/', params: params
+            end
+            it_behaves_like 'valid request'
+        end
+        context 'x-ssl-subject starts with o' do
+            before :each do
+                header 'X-SSL-SUBJECT', 'o=org1,dc=jwt'
+                request '/', params: params
             end
             it_behaves_like 'valid request'
         end

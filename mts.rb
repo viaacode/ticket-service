@@ -39,7 +39,7 @@ class Mts
 
     def initialize env
         request = Rack::Request.new env
-        
+
         subject = request.get_header('HTTP_X_SSL_SUBJECT')
         fail TicketArgumentError, 'certificate missing' unless subject
 
@@ -55,7 +55,7 @@ class Mts
         uriparams[:name] ||= request.path_info[%r{/(.*)},1]
         @params = uriparams.merge bodyparams
 
-        @allowed_tenants = subject&.scan(%r{\bo=(\w+)})&.flatten!
+        @allowed_tenants = subject&.scan(%r{(?:[/,]|^)o=([^/,]+)})&.flatten!
         @params[:app] ||= @allowed_tenants&.first
     end
 
