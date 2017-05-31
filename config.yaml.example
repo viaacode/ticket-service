@@ -1,0 +1,7 @@
+---
+subjectheader: 'HTTP_X_SSL_SUBJECT'
+appseed: seed
+appsecrets:
+    org1: secret
+oridmap:
+    TESTBEELD: org1

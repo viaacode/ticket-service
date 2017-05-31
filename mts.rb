@@ -11,6 +11,7 @@ class Mts
             Ticket.secrets = config['appsecrets']
             Ticket.seed = config['appseed']
             @@tenants = config["oridmap"]
+            @@subjectheader = config['subjectheader']
             self
         end
 
@@ -40,7 +41,7 @@ class Mts
     def initialize env
         request = Rack::Request.new env
 
-        subject = request.get_header('HTTP_X_SSL_SUBJECT')
+        subject = request.get_header(@@subjectheader)
         fail TicketArgumentError, 'certificate missing' unless subject
 
         body = request.body.read(384)
@@ -64,7 +65,7 @@ class Mts
     end
 
     def prefix
-        name[%r{(\w+)/},1]
+        name[%r{([^/]+)/},1]
     end
 
     def authorized?

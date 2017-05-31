@@ -5,6 +5,7 @@ MtsConfig = YAML.load <<EOF
 ---
 oridmap:
     p: org1
+subjectheader: 'HTTP_X_SSL_SUBJECT'
 EOF
 
 describe Mts do
@@ -27,7 +28,7 @@ describe Mts do
             it { is_expected.to include(context: params) }
         end
     end
-    context 'without HTTP_X_SSL_SUBJECT header' do
+    context 'without subject header header' do
         before :each do
             request '/' , params: params
         end
@@ -40,7 +41,7 @@ describe Mts do
             #it { is_expected.to include(message: cert) }
         end
     end
-    context 'with HTTP_X_SSL_SUBJECT header' do
+    context 'with subject header header' do
         before :each do
             header 'X-SSL-SUBJECT', 'mail=inf@exaple.org,o=org1,o=org2,dc=jwt'
         end
