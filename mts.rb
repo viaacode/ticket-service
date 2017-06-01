@@ -56,7 +56,8 @@ class Mts
         uriparams[:name] ||= request.path_info[%r{/(.*)},1]
         @params = uriparams.merge bodyparams
 
-        @allowed_tenants = subject&.scan(%r{(?:[/,]|^)o=([^/,]+)})&.flatten!
+        @allowed_tenants = subject&.scan(%r{(?:[/,]|^)O=([^/,]+)})&.flatten
+        fail TicketArgumentError, 'subject must have O' if @allowed_tenants.empty?
         @params[:app] ||= @allowed_tenants&.first
     end
 

@@ -43,7 +43,7 @@ describe Mts do
     end
     context 'with subject header header' do
         before :each do
-            header 'X-SSL-SUBJECT', 'mail=inf@exaple.org,o=org1,o=org2,dc=jwt'
+            header 'X-SSL-SUBJECT', 'emailAddress=inf@exaple.org,O=org1,O=org2,DC=jwt'
         end
         context 'with url parameters' do
             before :each do
@@ -84,7 +84,7 @@ describe Mts do
         end
         context 'app is taken from x-ssl-subject' do
             before :each do
-                header 'X-SSL-SUBJECT', 'mail=inf@exaple.org,o=a,o=org1,dc=jwt'
+                header 'X-SSL-SUBJECT', 'emailAddress=inf@exaple.org,O=a,O=org1,DC=jwt'
                 params_without_app = params.dup
                 params_without_app.delete(:app)
                 request '/', params: params_without_app
@@ -93,17 +93,31 @@ describe Mts do
         end
         context 'x-ssl-subject ends with o' do
             before :each do
-                header 'X-SSL-SUBJECT', 'dc=jwt,o=org1'
+                header 'X-SSL-SUBJECT', 'DC=jwt,O=org1'
                 request '/', params: params
             end
             it_behaves_like 'valid request'
         end
         context 'x-ssl-subject starts with o' do
             before :each do
-                header 'X-SSL-SUBJECT', 'o=org1,dc=jwt'
+                header 'X-SSL-SUBJECT', 'O=org1,DC=jwt'
                 request '/', params: params
             end
             it_behaves_like 'valid request'
+        end
+        context 'x-ssl-subject has no o' do
+            before :each do
+                header 'X-SSL-SUBJECT', 'OU=org1,DC=jwt'
+                request '/', params: params
+            end
+            subject {last_response }
+            it { expect(subject.status).to eq 400 }
+            it { expect(subject.body).to include ' O' }
+            context 'response body' do
+                subject { JSON.parse last_response.body, symbolize_names: true }
+                it { is_expected.to include(status: 400) }
+                #it { is_expected.to include(message: cert) }
+            end
         end
     end
 end
