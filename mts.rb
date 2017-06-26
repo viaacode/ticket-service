@@ -7,6 +7,18 @@ class Mts
 
     class << self
 
+        def healthcheck
+            if @@tenants &&
+                    #Ticket.seed &&
+                    #Ticket.secrets &&
+                    @@subjectheader &&
+                    @@tenants
+                respond 'OK', 200
+            else
+                respond 'NOK', 500
+            end
+        end
+
         def configure config
             Ticket.secrets = config['appsecrets']
             Ticket.seed = config['appseed']
@@ -16,7 +28,7 @@ class Mts
         end
 
         def call env
-            request = self.new env
+            request = new env
             return respond "unauthorized", 403 unless request.authorized?
             request.getticket
         rescue => e
