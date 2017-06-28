@@ -5,14 +5,15 @@ require_relative 'lib/ticket'
 
 class Mts
 
+    MAXAGE_DEFAULT = 14400 # default TTL of the tickets
+
     class << self
 
         def healthcheck
             if @@tenants &&
                     #Ticket.seed &&
                     #Ticket.secrets &&
-                    @@subjectheader &&
-                    @@tenants
+                    @@subjectheader
                 respond 'OK', 200
             else
                 respond 'NOK', 500
@@ -24,6 +25,7 @@ class Mts
             Ticket.seed = config['appseed']
             @@tenants = config["oridmap"]
             @@subjectheader = config['subjectheader']
+            @@maxage = config['maxage'] || MAXAGE_DEFAULT
             self
         end
 
@@ -71,6 +73,7 @@ class Mts
         @allowed_tenants = subject&.scan(%r{(?:[/,]|^)O=([^/,]+)})&.flatten
         fail TicketArgumentError, 'subject must have O' if @allowed_tenants.empty?
         @params[:app] ||= @allowed_tenants&.first
+        @params[:maxage] ||= @@maxage
     end
 
     def name
