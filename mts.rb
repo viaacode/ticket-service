@@ -14,9 +14,9 @@ class Mts
                     #Ticket.seed &&
                     #Ticket.secrets &&
                     @@subjectheader
-                respond 'OK', 200
+                set_response 'OK', 200
             else
-                respond 'NOK', 500
+                set_response 'NOK', 500
             end
         end
 
@@ -31,14 +31,17 @@ class Mts
 
         def call env
             request = new env
-            return respond "unauthorized", 403 unless request.authorized?
-            request.getticket
+            if request.authorized?
+                set_response request.getticket
+            else
+                set_response "unauthorized", 403
+            end
         rescue => e
             code = e.is_a?(TicketArgumentError) ? 400 : 500
-            respond e.message, code
+            set_response e.message, code
         end
 
-        def respond body, status=200
+        def set_response body, status=200
             response = Rack::Response.new([], status)
             body = { error: body, status: status } unless response.successful?
             response.write body.to_json if body
@@ -46,10 +49,6 @@ class Mts
             response.finish
         end
 
-    end
-
-    def respond *args
-        self.class.respond *args
     end
 
     def initialize env
@@ -92,7 +91,6 @@ class Mts
 
     def getticket
         ticket = Ticket.new(@params)
-        response = { jwt: ticket.jwt, context: ticket.to_hash }
-        respond response
+        { jwt: ticket.jwt, context: ticket.to_hash }
     end
 end
