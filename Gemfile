@@ -2,7 +2,7 @@ source 'https://rubygems.org'
 gem 'rack'
 gem 'json_web_token'
 
-group :development do
+group :development, optional: true do
     gem 'rack-test'
     gem "guard"
     gem "guard-rack"

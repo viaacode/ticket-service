@@ -6,6 +6,10 @@ MtsConfig = YAML.load <<EOF
 oridmap:
     p: org1
 subjectheader: 'HTTP_X_SSL_SUBJECT'
+backend: backend.example.org
+buckets:
+  mp4: 'viaa'
+  m3u8: 'fragments'
 EOF
 
 MaxageConfig = YAML.load <<EOF
@@ -15,7 +19,7 @@ EOF
 
 describe Mts do
 
-    let (:params) { {app: 'a',name: 'p/n',useragent: 'u',client: 'c',verb: 'v'} }
+    let (:params) { {app: 'a',name: 'p/n.mp4',useragent: 'u',client: 'c',verb: 'v'} }
     let (:ticket) { instance_double('Ticket', jwt: 'jwtok', to_hash: params) }
     let (:maxage) { {maxage: 14400} }
     before :each do
@@ -26,6 +30,7 @@ describe Mts do
         it { expect(last_response.status).to eq 200 }
         context 'response body' do
             subject { JSON.parse last_response.body, symbolize_names: true }
+            it { is_expected.to be_a Hash }
             it { is_expected.to include(jwt: 'jwtok') }
             it { is_expected.to include(context: params) }
         end
@@ -94,12 +99,21 @@ describe Mts do
                 end
                 it_behaves_like 'valid request'
             end
+            context 'Content from other org is forbidden' do
+                before :each do
+                    params_without_name = params.dup
+                    params_without_name.delete(:name)
+                    request '/r/n.mp4', params: params_without_name
+                end
+                subject { last_response }
+                it { is_expected.to be_forbidden }
+            end
             context 'with name in the url parameters' do
                 context 'name in url only' do
                     before :each do
                         params_without_name = params.dup
                         params_without_name.delete(:name)
-                        request '/p/n', params: params_without_name
+                        request '/p/n.mp4', params: params_without_name
                     end
                     it_behaves_like 'valid request'
                 end
@@ -146,6 +160,83 @@ describe Mts do
                     subject { JSON.parse last_response.body, symbolize_names: true }
                     it { is_expected.to include(status: 400) }
                     #it { is_expected.to include(message: cert) }
+                end
+            end
+            context 'with hls' do
+                let (:params2) { {app: 'a',name: 'p/n.m3u8',useragent: 'u',client: 'c',verb: 'v'} }
+                let (:ticket2) { instance_double('Ticket', jwt: 'jwtok2', to_hash: params2) }
+                let (:mp4_age) { true }
+                let (:m3u8_age) { 14401 }
+                let (:ts_age) { 14401 }
+                before :each do
+                    allow(SwarmBucket).to receive(:present?) do |uri|
+                        case uri.to_s
+                        when /backend.example.org\/viaa\/.*mp4$/
+                            mp4_age
+                        when /backend.example.org\/fragments\/.*ts.1$/
+                            ts_age
+                        when /backend.example.org\/fragments\/.*m3u8$/
+                            m3u8_age
+                        else
+                            nil
+                        end
+                    end
+                    allow(Ticket).to receive(:new).and_return(ticket, ticket2)
+                    request '/', params: params.merge(check: [ 'm3u8'])
+                end
+                subject { JSON.parse last_response.body, symbolize_names: true }
+                it { is_expected.to be_a Hash }
+                context 'when mp4 and m3u8 exist' do
+                    it 'requests two tickets' do
+                        expect(Ticket).to have_received(:new).with(params.merge maxage)
+                        expect(Ticket).to have_received(:new).with(params.merge(maxage)
+                            .merge(name: 'p/n.m3u8'))
+                    end
+                    context 'response body' do
+                        it { expect(last_response.status).to eq 200 }
+                        it { is_expected.to include(name: 'p/n') } 
+                        it { is_expected.to include(total: 2) } 
+                        it { is_expected.to include(:results) } 
+                        it { expect(subject[:results].length).to eq 2 }
+                        it { expect(subject[:results]).to include({jwt:'jwtok',context:params}) }
+                        it { expect(subject[:results]).to include({jwt:'jwtok2',context:params2}) }
+                    end
+                end
+                3.times do |i|
+                    context "when mp4 exists but m3u8 not #{i}" do
+                        let (:m3u8_age) { 14400 + i/2 } # absent  absent  present
+                        let (:ts_age) { 14400 + i%2 }   # absent  present absent
+                        it 'requests two tickets' do
+                            expect(Ticket).to have_received(:new).with(params.merge maxage)
+                            expect(Ticket).not_to have_received(:new).with(params.merge(maxage)
+                                .merge(name: 'p/n.m3u8'))
+                        end
+                        context 'response body' do
+                            it { expect(last_response.status).to eq 200 }
+                            it { is_expected.to include(name: 'p/n') } 
+                            it { is_expected.to include(total: 1) } 
+                            it { is_expected.to include(:results) } 
+                            it { expect(subject[:results].length).to eq 1 }
+                            it { expect(subject[:results]).to include(
+                                {jwt:'jwtok',context:params}
+                            ) }
+                            it { expect(subject[:results]).not_to include(
+                                {jwt:'jwtok2',context:params2}
+                            ) }
+                        end
+                    end
+                end
+                context "when mp4 nor m3u8 exists" do
+                    let (:m3u8_age) { 14400 } # absent
+                    let (:mp4_age) { 14400 }  # absent
+                    it { expect(Ticket).not_to have_received(:new) }
+                    context 'response body' do
+                        it { expect(last_response.status).to eq 404 }
+                        it { is_expected.not_to include(:name) } 
+                        it { is_expected.not_to include(:total) } 
+                        it { is_expected.not_to include(:results) } 
+                        it { is_expected.to include(error: "p/n not found") } 
+                    end
                 end
             end
         end
