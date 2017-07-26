@@ -91,7 +91,7 @@ class Mts
         subject = request.get_header(@@subjectheader)
         raise ArgumentError, 'certificate missing' unless subject
         body = request.body.read(384)
-        bodyparams = JSON.parse(body, max_nesting: 1,
+        bodyparams = JSON.parse(body, max_nesting: 2,
                                 allow_nan: false,
                                 symbolize_names: true) if body
         bodyparams = {} unless bodyparams.is_a? Hash
@@ -106,18 +106,17 @@ class Mts
             'subject must have O' if @allowed_tenants.empty?
         @params[:app] ||= @allowed_tenants&.first
         @params[:maxage] ||= @@maxage
-        check = @params.delete :check
+        check = @params.delete :format
         if check
-            raise ArgumentError unless
-            match = /(.*)\.(\w+$)/.match(@params[:name])  
-            @basename = match[1]
-            @type = match[2]
+            match = /(.+)\.(\w+$)/.match(@params[:name])
+            raise ArgumentError unless match
+            @basename, @type = match[1..2]
             raise ArgumentError, "unknown bucket for type: #{@type}" unless
             @@buckets.keys.include?(@type)
             @check = case check
                      when Array then check
                      when String then Array(check)
-                     else []
+                     else @@buckets.keys
                      end
             @check << @type unless @check.include?(@type)
             raise  ArgumentError, 'max 3 check elements' if @check.length > 3
@@ -146,17 +145,18 @@ class Mts
     def checktickets
         tickets = []
         @check.each do |type|
-            bucket = @@buckets[type]
+            bucket = @@buckets[type] || @@buckets[@type]
             ttl = suffix(type).each_with_object([]) do |sfx, tl|
                 tl << SwarmBucket.present?(
                     URI "http://#{@@backend}/#{bucket}/#{@basename}.#{sfx}"
                 ) 
             end
             if ttl.all? do |tl|
-                ( tl.is_a?(TrueClass) or tl&.> @params[:maxage])
+                tl.is_a?(Integer) ? (tl&.> @params[:maxage]) : tl
             end
-            tickets << singleticket(
+            ticket = Ticket.new(
                 @params.merge(name: "#{@basename}.#{type}")) 
+            tickets << { jwt: ticket.jwt }.merge(ticket.to_hash)
             end
         end
         raise NotFound, "#{@basename} not found" if tickets.empty?
@@ -172,7 +172,8 @@ class Mts
         if @check
             checktickets
         else
-            singleticket @params
+            ticket = Ticket.new(@params)
+            { jwt: ticket.jwt, context: ticket.to_hash }
         end
     end
 end
