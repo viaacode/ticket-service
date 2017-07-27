@@ -36,20 +36,20 @@ class Mts
     class << self
 
         def healthcheck
-            if @@tenants &&
+            if @@tenant2id &&
                     #Ticket.seed &&
                     #Ticket.secrets &&
                     @@subjectheader
-                set_response 'OK', 200
+                response2json 'OK', 200
             else
-                set_response 'NOK', 500
+                response2json 'NOK', 500
             end
         end
 
         def configure config
             Ticket.secrets = config['appsecrets']
             Ticket.seed = config['appseed']
-            @@tenants = config["oridmap"]
+            @@tenant2id = config["oridmap"]
             @@subjectheader = config['subjectheader']
             @@maxage = config['maxage'] || MAXAGE_DEFAULT
             @@backend = config['backend']
@@ -60,7 +60,7 @@ class Mts
         def call env
             request = new env
             raise Forbidden, 'unauthorized' unless request.authorized?
-            set_response request.getticket
+            response2json request.getticket
         rescue => e
             puts e#, e.backtrace
             case e
@@ -74,10 +74,10 @@ class Mts
                 status = 500
                 message = 'Internal error'
             end
-            set_response({ error: message, status: status }, status)
+            response2json({ error: message, status: status }, status)
         end
 
-        def set_response body, status=200
+        def response2json body, status=200
             response = Rack::Response.new([], status)
             response.write body.to_json if body
             response.set_header('Content-Type', 'application/json')
@@ -87,43 +87,74 @@ class Mts
     end
 
     def initialize env
-        request = Rack::Request.new env
-        subject = request.get_header(@@subjectheader)
-        raise ArgumentError, 'certificate missing' unless subject
-        body = request.body.read(384)
-        bodyparams = JSON.parse(body, max_nesting: 2,
-                                allow_nan: false,
-                                symbolize_names: true) if body
-        bodyparams = {} unless bodyparams.is_a? Hash
-        uriparams = request.GET.each_with_object({}) do |p,hash|
-            hash[p[0].to_sym] = p[1][0,128]
-        end
-        # If no name has been supplied, use path info as name
-        uriparams[:name] ||= request.path_info[%r{/(.*)},1]
-        @params = uriparams.merge bodyparams
-        @allowed_tenants = subject&.scan(%r{(?:[/,]|^)O=([^/,]+)})&.flatten
+        @request = Rack::Request.new env
+        @tenants = tenants_from_cert
         raise ArgumentError,
-            'subject must have O' if @allowed_tenants.empty?
-        @params[:app] ||= @allowed_tenants&.first
-        @params[:maxage] ||= @@maxage
-        check = @params.delete :format
-        if check
-            match = /(.+)\.(\w+$)/.match(@params[:name])
-            raise ArgumentError unless match
-            @basename, @type = match[1..2]
-            raise ArgumentError, "unknown bucket for type: #{@type}" unless
-            @@buckets.keys.include?(@type)
-            @check = case check
-                     when Array then check
-                     when String then Array(check)
-                     else @@buckets.keys
-                     end
-            @check << @type unless @check.include?(@type)
-            raise  ArgumentError, 'max 3 check elements' if @check.length > 3
+            'subject must have O' if @tenants.empty?
+        @params = request_params
+        @formats = @params.delete(:format)
+        raies ArgumentError 'too many parameters' if @params.length > 6
+        if @formats
+            @basename, @type = split_name
         end
     end
 
-    def suffix type
+    def getticket
+        if @formats
+            checktickets
+        else
+            ticket = Ticket.new(@params)
+            { jwt: ticket.jwt, context: ticket.to_hash }
+        end
+    end
+
+    def authorized?
+        tenantname = prefix
+        return false unless tenantname
+        @tenants.include? @@tenant2id[tenantname]
+    end
+
+    private 
+
+    def split_name
+        namesplit = /(.+)\.(\w+$)/.match(@params[:name])
+        raise ArgumentError unless namesplit
+        namesplit[1..2]
+    end
+
+    def body_params
+        body = @request.body.read(384)
+        return {} unless body
+        bodyparams = JSON.parse(body, max_nesting: 2,
+                                allow_nan: false,
+                                symbolize_names: true)
+        raise ArgumentError,
+            'error parsing request body' unless bodyparams.is_a?(Hash)
+        bodyparams
+    end
+
+    def uri_params
+        @request.GET.each_with_object({}) do |p,hash|
+            hash[p[0].to_sym] = p[1][0,128]
+        end
+    end
+
+    def request_params
+        params = uri_params.merge body_params
+        params[:app] ||= @tenants&.first
+        params[:maxage] ||= @@maxage
+        # If no name has been supplied, use path info as name
+        params[:name] ||= @request.path_info[%r{/(.*)},1]
+        params
+    end
+
+    def tenants_from_cert
+        subject = @request.get_header(@@subjectheader)
+        raise ArgumentError, 'certificate missing' unless subject
+        subject&.scan(%r{(?:[/,]|^)O=([^/,]+)})&.flatten
+    end
+
+    def check_types type
         case type
         when 'm3u8'
             ['ts.1', 'm3u8']
@@ -136,44 +167,33 @@ class Mts
         @params[:name][%r{([^/]+)/},1]
     end
 
-    def authorized?
-        tenantname = prefix
-        return false unless tenantname
-        @allowed_tenants.include? @@tenants[tenantname]
-    end
-
     def checktickets
-        tickets = []
-        @check.each do |type|
+        tickets = formats.each_with_object([]) do |type, mytickets|
             bucket = @@buckets[type] || @@buckets[@type]
-            ttl = suffix(type).each_with_object([]) do |sfx, tl|
+            ttl = check_types(type).each_with_object([]) do |sfx, tl|
                 tl << SwarmBucket.present?(
                     URI "http://#{@@backend}/#{bucket}/#{@basename}.#{sfx}"
                 ) 
             end
-            if ttl.all? do |tl|
-                tl.is_a?(Integer) ? (tl&.> @params[:maxage]) : tl
-            end
-            ticket = Ticket.new(
-                @params.merge(name: "#{@basename}.#{type}")) 
-            tickets << { jwt: ticket.jwt }.merge(ticket.to_hash)
+            if ttl.all? { |tl| tl.is_a?(Integer) ? (tl&.> @params[:maxage]) : tl }
+                ticket = Ticket.new( @params.merge(name: "#{@basename}.#{type}")) 
+                mytickets << { jwt: ticket.jwt }.merge(ticket.to_hash)
             end
         end
         raise NotFound, "#{@basename} not found" if tickets.empty?
         { total: tickets.length, name: @basename, results: tickets }
     end
 
-    def singleticket params
-        ticket = Ticket.new(params)
-        { jwt: ticket.jwt, context: ticket.to_hash }
+    def formats
+        raise ArgumentError, "unknown bucket #{@type}" unless @@buckets.keys.include?(@type)
+        formats = case @formats
+                  when Array then @formats
+                  when String then Array(@formats.split ',')
+                  else @@buckets.keys
+                  end
+        raise  ArgumentError, 'max 3 @formats elements' if formats.length > 3
+        formats << @type unless formats.include?(@type)
+        formats
     end
 
-    def getticket
-        if @check
-            checktickets
-        else
-            ticket = Ticket.new(@params)
-            { jwt: ticket.jwt, context: ticket.to_hash }
-        end
-    end
 end
