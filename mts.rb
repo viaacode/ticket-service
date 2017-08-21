@@ -54,6 +54,7 @@ class Mts
             @@maxage = config['maxage'] || MAXAGE_DEFAULT
             @@backend = config['backend']
             @@buckets = config['buckets']
+            @@superorid = config['superorid']
             self
         end
 
@@ -111,7 +112,7 @@ class Mts
     def authorized?
         tenantname = prefix
         return false unless tenantname
-        @tenants.include? @@tenant2id[tenantname]
+        @tenants.include?(@@tenant2id[tenantname]) || @tenants.include?(@@superorid)
     end
 
     private 

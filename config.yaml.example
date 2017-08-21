@@ -1,7 +1,12 @@
 ---
+superorid: superorg
 subjectheader: 'HTTP_X_SSL_SUBJECT'
 appseed: seed
 appsecrets:
     org1: secret
 oridmap:
     TESTBEELD: org1
+backend: objectstore.example.net
+buckets:
+  mp4: media
+  m3u8: playout

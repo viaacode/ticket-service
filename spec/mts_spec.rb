@@ -3,6 +3,7 @@ require_relative '../mts'
 
 MtsConfig = YAML.load <<EOF
 ---
+superorid: superorg
 oridmap:
     p: org1
 subjectheader: 'HTTP_X_SSL_SUBJECT'
@@ -107,6 +108,22 @@ describe Mts do
                 end
                 subject { last_response }
                 it { is_expected.to be_forbidden }
+            end
+            context 'Superorg has access to all content' do
+                before :each do
+                    header 'X-SSL-SUBJECT', 'emailAddress=inf@exaple.org,O=superorg,DC=jwt'
+                    request '/' , params: params
+                end
+                subject { last_response }
+                it_behaves_like 'valid request'
+            end
+            context 'Superorg has access to all content' do
+                before :each do
+                    header 'X-SSL-SUBJECT', 'emailAddress=inf@exaple.org,O=superorg,O=org2,DC=jwt'
+                    request '/' , params: params
+                end
+                subject { last_response }
+                it_behaves_like 'valid request'
             end
             context 'with name in the url parameters' do
                 context 'name in url only' do
