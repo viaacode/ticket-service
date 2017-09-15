@@ -112,7 +112,7 @@ class Mts
     def authorized?
         tenantname = prefix
         return false unless tenantname
-        @tenants.include?(@@tenant2id[tenantname]) || @tenants.include?(@@superorid)
+        @tenants.include?(@@superorid) || @tenants.include?(@@tenant2id[tenantname])
     end
 
     private 
