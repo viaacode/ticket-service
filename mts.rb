@@ -2,6 +2,7 @@ require 'json'
 require 'yaml'
 require 'net/http'
 require 'rack'
+require 'rest-client'
 require_relative 'lib/ticket'
 require_relative 'lib/swarmbucket'
 
@@ -36,25 +37,50 @@ class Mts
     class << self
 
         def healthcheck
-            if @@tenant2id &&
-                    #Ticket.seed &&
-                    #Ticket.secrets &&
-                    @@subjectheader
+            if @@tenant2id && @@subjectheader
                 response2json 'OK', 200
             else
                 response2json 'NOK', 500
             end
         end
 
+        def tenent_id_cache_file
+            File.expand_path('tmp/orid.yaml', File.dirname(__FILE__))
+        end
+
+        def save_tenant_ids tenant2id
+            File.write tenent_id_cache_file, tenant2id.to_yaml
+        rescue
+            $stderr.puts 'Warning failed to write tenantt ids to cache'
+        end
+
+        def load_tenant_ids
+            YAML.load_file tenent_id_cache_file
+        end
+
+        def get_tenant_ids
+           response = RestClient::Request.execute(method: :get,
+                                                  url: @@organizations_api,
+                                                  timeout: 10)
+           tenant2id = JSON.parse(response.body)["data"]
+               .each_with_object({}) { |x,hash| hash[x["cp_name"]] = x["or_id"] }
+           save_tenant_ids tenant2id
+           tenant2id
+        rescue StandardError => e
+            $stderr.puts "Error fetchnig organizations from #{@@organizations_api}: #{e}"
+            load_tenant_ids
+        end
+
         def configure config
             Ticket.secrets = config['appsecrets']
             Ticket.seed = config['appseed']
-            @@tenant2id = config["oridmap"]
+            @@organizations_api = config["organizations_api"]
             @@subjectheader = config['subjectheader']
             @@maxage = config['maxage'] || MAXAGE_DEFAULT
             @@backend = config['backend']
             @@buckets = config['buckets']
             @@superorid = config['superorid']
+            @@tenant2id = get_tenant_ids
             self
         end
 
@@ -63,7 +89,7 @@ class Mts
             raise Forbidden, 'unauthorized' unless request.authorized?
             response2json request.getticket
         rescue => e
-            puts e#, e.backtrace
+            $stderr.puts e, e.backtrace
             case e
             when Ticket::ArgumentError
                 status = 400
@@ -115,7 +141,7 @@ class Mts
         @tenants.include?(@@superorid) || @tenants.include?(@@tenant2id[tenantname])
     end
 
-    private 
+    private
 
     def split_name
         namesplit = /(.+)\.(\w+$)/.match(@params[:name])
@@ -174,10 +200,10 @@ class Mts
             ttl = check_types(type).each_with_object([]) do |sfx, tl|
                 tl << SwarmBucket.present?(
                     URI "http://#{@@backend}/#{bucket}/#{@basename}.#{sfx}"
-                ) 
+                )
             end
             if ttl.all? { |tl| tl.is_a?(Integer) ? (tl&.> @params[:maxage]) : tl }
-                ticket = Ticket.new( @params.merge(name: "#{@basename}.#{type}")) 
+                ticket = Ticket.new( @params.merge(name: "#{@basename}.#{type}"))
                 mytickets << { jwt: ticket.jwt }.merge(ticket.to_hash)
             end
         end

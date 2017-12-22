@@ -1,3 +1,5 @@
 .bundle
 config.yaml
 passenger*lock
+/tmp/**
+!/tmp

@@ -4,8 +4,7 @@ subjectheader: 'HTTP_X_SSL_SUBJECT'
 appseed: seed
 appsecrets:
     org1: secret
-oridmap:
-    TESTBEELD: org1
+organizations_api: http://api.example.org
 backend: objectstore.example.net
 buckets:
   mp4: media

@@ -5,7 +5,7 @@ guard :rack do
   watch %r{.*\.yaml}
 end
 
-guard :rspec, cmd: 'rspec -f d' do
+guard :rspec, cmd: 'rspec -f d 2>/dev/null' do
   watch(%r{^spec/.+_spec\.rb$})
   watch(%r{^(.+)\.rb$})     { |m| "spec/#{m[1]}_spec.rb"  }
   watch('spec/spec_helper.rb') { "spec" }
