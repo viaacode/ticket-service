@@ -58,12 +58,17 @@ class Mts
             YAML.load_file tenent_id_cache_file
         end
 
+        def path organization
+            organization["cp_name"].gsub(/\W/,'').upcase
+        end
+
         def get_tenant_ids
            response = RestClient::Request.execute(method: :get,
                                                   url: @@organizations_api,
                                                   timeout: 10)
-           tenant2id = JSON.parse(response.body)["data"]
-               .each_with_object({}) { |x,hash| hash[x["cp_name"]] = x["or_id"] }
+           tenant2id = JSON.parse(response.body)["data"].each_with_object({}) do |x,hash|
+               hash[path x] = x["or_id"]
+           end
            save_tenant_ids tenant2id
            tenant2id
         rescue StandardError => e

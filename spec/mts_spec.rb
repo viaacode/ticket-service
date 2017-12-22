@@ -17,7 +17,7 @@ organizations_api_body =<<eos
 "data": [
     {
       "or_id": "OR-w66976m",
-      "cp_name": "VIAA",
+      "cp_name": "TV-Oost West",
       "category": "Service Provider",
       "sector": "Cultuur",
       "cp_name_catpro": null,
@@ -45,13 +45,13 @@ organizations_api_body =<<eos
 }
 eos
 organizations_dirty_cache =<<eos
-test_cp_name: dirtycache_cp_id
+TEST_CP_NAME: dirtycache_cp_id
 eos
 
 default_max_age = Mts::MAXAGE_DEFAULT
 
 RSpec.describe Mts do
-    let (:params) { {app: 'a',name: 'test_cp_name/n.mp4',useragent: 'u',client: 'c',verb: 'v'} }
+    let (:params) { {app: 'a',name: 'TEST_CP_NAME/n.mp4',useragent: 'u',client: 'c',verb: 'v'} }
     let (:ticket) { instance_spy('Ticket', jwt: 'jwtok', to_hash: params) }
     let (:app) do
         Mts.configure MtsConfig
@@ -93,14 +93,14 @@ RSpec.describe Mts do
             end
         end
         context 'when the organizations_api is working' do
-            before :each do 
+            before :each do
                 app
             end
             it 'queries the org api' do
                 expect(WebMock).to have_requested(:get,  "http://api.example.org")
             end
             it 'writes the results to a tempoary YAML file' do
-                expect(cached_organizations).to eq "---\nVIAA: OR-w66976m\ntest_cp_name: test_cp_id\n"
+                expect(cached_organizations).to eq "---\nTVOOSTWEST: OR-w66976m\nTEST_CP_NAME: test_cp_id\n"
             end
         end
         context 'when the org_api returns an error, it uses the org cache' do
@@ -136,8 +136,8 @@ RSpec.describe Mts do
                 Mts.configure MtsConfig.merge({"maxage" => default_max_age * 2})
             end
             before :each do
-                env :input, params.to_json 
-                request '/' 
+                env :input, params.to_json
+                request '/'
             end
             it_behaves_like 'valid request', default_max_age * 2
         end
@@ -150,22 +150,22 @@ RSpec.describe Mts do
             end
             context 'with body parameters' do
                 before :each do
-                    env :input, params.to_json 
-                    request '/' 
+                    env :input, params.to_json
+                    request '/'
                 end
                 it_behaves_like 'valid request'
             end
             context 'maxage parameter overides default' do
                 before :each do
-                    env :input, params.merge(maxage: 28800).to_json 
-                    request '/' 
+                    env :input, params.merge(maxage: 28800).to_json
+                    request '/'
                 end
                 it_behaves_like 'valid request', 28800
             end
             context 'body parameters override url parameters' do
                 before :each do
-                    env :input, params.to_json 
-                    request '/' , params: params.merge(name: 'test_cp_name/a', app: 'p', useragent: 's')
+                    env :input, params.to_json
+                    request '/' , params: params.merge(name: 'TEST_CP_NAME/a', app: 'p', useragent: 's')
                 end
                 it_behaves_like 'valid request'
             end
@@ -199,13 +199,13 @@ RSpec.describe Mts do
                     before :each do
                         params_without_name = params.dup
                         params_without_name.delete(:name)
-                        request '/test_cp_name/n.mp4', params: params_without_name
+                        request '/TEST_CP_NAME/n.mp4', params: params_without_name
                     end
                     it_behaves_like 'valid request'
                 end
                 context 'name in body overrides url' do
                     before :each do
-                        env :input, params.to_json 
+                        env :input, params.to_json
                         request '/a'
                     end
                     it_behaves_like 'valid request'
@@ -250,14 +250,14 @@ RSpec.describe Mts do
             end
             context 'with format: false' do
                 before :each do
-                    env :input, params.merge(format: false).to_json 
+                    env :input, params.merge(format: false).to_json
                     request '/'
                 end
                 it_behaves_like 'valid request'
             end
             [ 'm3u8', ['m3u8'], ['m3u8', 'mp4'], ['mp4', 'm3u8'], ['mp4', 'm3u8', 'webm'], true ].each do |format|
                 context "with format: #{format}" do
-                    let (:params2) { params.merge(name: 'test_cp_name/n.m3u8') }
+                    let (:params2) { params.merge(name: 'TEST_CP_NAME/n.m3u8') }
                     let (:ticket2) { instance_double('Ticket', jwt: 'jwtok2', to_hash: params2) }
                     let (:mp4_age) { true }
                     let (:ts_age) { true }
@@ -281,7 +281,7 @@ RSpec.describe Mts do
                             else ticket2
                             end
                         end
-                        env :input, params.merge(format: format).to_json 
+                        env :input, params.merge(format: format).to_json
                         request '/'
                     end
                     subject { JSON.parse last_response.body, symbolize_names: true }
@@ -298,15 +298,15 @@ RSpec.describe Mts do
                         end
                         context 'response body' do
                             it { expect(last_response.status).to eq 200 }
-                            it { is_expected.to include(name: 'test_cp_name/n') } 
-                            it { is_expected.to include(total: 2) } 
-                            it { is_expected.to include(:results) } 
+                            it { is_expected.to include(name: 'TEST_CP_NAME/n') }
+                            it { is_expected.to include(total: 2) }
+                            it { is_expected.to include(:results) }
                             it { expect(subject[:results].length).to eq 2 }
                             it { expect(subject[:results])
                                 .to include({jwt:'jwtok'}.merge params) }
                             it { expect(subject[:results])
                                 .to include({jwt:'jwtok2'}.merge params2) }
-                            if format.is_a?(Array) 
+                            if format.is_a?(Array)
                                 it { expect(subject[:results][0][:name])
                                     .to match %r{.#{format[0]}} }
                             end
@@ -324,9 +324,9 @@ RSpec.describe Mts do
                             end
                             context 'response body' do
                                 it { expect(last_response.status).to eq 200 }
-                                it { is_expected.to include(name: 'test_cp_name/n') } 
-                                it { is_expected.to include(total: 1) } 
-                                it { is_expected.to include(:results) } 
+                                it { is_expected.to include(name: 'TEST_CP_NAME/n') }
+                                it { is_expected.to include(total: 1) }
+                                it { is_expected.to include(:results) }
                                 it { expect(subject[:results].length).to eq 1 }
                                 it { expect(subject[:results]).to include(
                                     {jwt:'jwtok'}.merge params
@@ -344,10 +344,10 @@ RSpec.describe Mts do
                         it { expect(Ticket).not_to have_received(:new) }
                         context 'response body' do
                             it { expect(last_response.status).to eq 404 }
-                            it { is_expected.not_to include(:name) } 
-                            it { is_expected.not_to include(:total) } 
-                            it { is_expected.not_to include(:results) } 
-                            it { is_expected.to include(error: "test_cp_name/n not found") } 
+                            it { is_expected.not_to include(:name) }
+                            it { is_expected.not_to include(:total) }
+                            it { is_expected.not_to include(:results) }
+                            it { is_expected.to include(error: "TEST_CP_NAME/n not found") }
                         end
                     end
                     context "when m3u8 exists, but mp4 not" do
@@ -359,13 +359,13 @@ RSpec.describe Mts do
                                 .with(params.merge({maxage: default_max_age}))
                             expect(Ticket).to have_received(:new)
                                 .with(params.merge({maxage: default_max_age})
-                                .merge(name: 'test_cp_name/n.m3u8'))
+                                .merge(name: 'TEST_CP_NAME/n.m3u8'))
                         end
                         context 'response body' do
                             it { expect(last_response.status).to eq 200 }
-                            it { is_expected.to include(name: 'test_cp_name/n') } 
-                            it { is_expected.to include(total: 1) } 
-                            it { is_expected.to include(:results) } 
+                            it { is_expected.to include(name: 'TEST_CP_NAME/n') }
+                            it { is_expected.to include(total: 1) }
+                            it { is_expected.to include(:results) }
                             it { expect(subject[:results].length).to eq 1 }
                             it { expect(subject[:results]).not_to include(
                                 {jwt:'jwtok'}.merge params
