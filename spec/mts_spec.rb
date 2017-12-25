@@ -3,7 +3,7 @@ require_relative '../mts'
 
 MtsConfig = YAML.load <<EOF
 ---
-superorid: superorg
+wildcard: superorg
 subjectheader: HTTP_X_SSL_SUBJECT
 organizations_api: http://api.example.org
 backend: backend.example.org

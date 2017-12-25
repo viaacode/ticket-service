@@ -37,43 +37,11 @@ class Mts
     class << self
 
         def healthcheck
-            if @@tenant2id && @@subjectheader
+            if @@organization_ids && @@subjectheader
                 response2json 'OK', 200
             else
                 response2json 'NOK', 500
             end
-        end
-
-        def tenent_id_cache_file
-            File.expand_path('tmp/orid.yaml', File.dirname(__FILE__))
-        end
-
-        def save_tenant_ids tenant2id
-            File.write tenent_id_cache_file, tenant2id.to_yaml
-        rescue
-            $stderr.puts 'Warning failed to write tenantt ids to cache'
-        end
-
-        def load_tenant_ids
-            YAML.load_file tenent_id_cache_file
-        end
-
-        def path organization
-            organization["cp_name"].gsub(/\W/,'').upcase
-        end
-
-        def get_tenant_ids
-           response = RestClient::Request.execute(method: :get,
-                                                  url: @@organizations_api,
-                                                  timeout: 10)
-           tenant2id = JSON.parse(response.body)["data"].each_with_object({}) do |x,hash|
-               hash[path x] = x["or_id"]
-           end
-           save_tenant_ids tenant2id
-           tenant2id
-        rescue StandardError => e
-            $stderr.puts "Error fetchnig organizations from #{@@organizations_api}: #{e}"
-            load_tenant_ids
         end
 
         def configure config
@@ -84,8 +52,8 @@ class Mts
             @@maxage = config['maxage'] || MAXAGE_DEFAULT
             @@backend = config['backend']
             @@buckets = config['buckets']
-            @@superorid = config['superorid']
-            @@tenant2id = get_tenant_ids
+            @@wildcard = config['wildcard']
+            @@organization_ids = get_organization_ids
             self
         end
 
@@ -109,6 +77,8 @@ class Mts
             response2json({ error: message, status: status }, status)
         end
 
+        private
+
         def response2json body, status=200
             response = Rack::Response.new([], status)
             response.write body.to_json if body
@@ -116,13 +86,45 @@ class Mts
             response.finish
         end
 
+        def organization_id_cache
+            File.expand_path('tmp/orid.yaml', File.dirname(__FILE__))
+        end
+
+        def save_organization_ids organization_ids
+            File.write organization_id_cache, organization_ids.to_yaml
+        rescue
+            $stderr.puts 'Warning failed to write organizationt ids to cache'
+        end
+
+        def load_organization_ids
+            YAML.load_file organization_id_cache
+        end
+
+        def path organization
+            organization["cp_name"].gsub(/\W/,'').upcase
+        end
+
+        def get_organization_ids
+           response = RestClient::Request.execute(method: :get,
+                                                  url: @@organizations_api,
+                                                  timeout: 10)
+           organization_ids = JSON.parse(response.body)["data"].each_with_object({}) do |x,hash|
+               hash[path x] = x["or_id"]
+           end
+           save_organization_ids organization_ids
+           organization_ids
+        rescue StandardError => e
+            $stderr.puts "Error fetchnig organizations from #{@@organizations_api}: #{e}"
+            load_organization_ids
+        end
+
     end
 
     def initialize env
         @request = Rack::Request.new env
-        @tenants = tenants_from_cert
+        @organizations = organizations_from_cert
         raise ArgumentError,
-            'subject must have O' if @tenants.empty?
+            'subject must have O' if @organizations.empty?
         @params = request_params
         @formats = @params.delete(:format)
         raies ArgumentError 'too many parameters' if @params.length > 6
@@ -141,9 +143,10 @@ class Mts
     end
 
     def authorized?
-        tenantname = prefix
-        return false unless tenantname
-        @tenants.include?(@@superorid) || @tenants.include?(@@tenant2id[tenantname])
+        organization_name = prefix
+        return false unless organization_name
+        @organizations.include?(@@wildcard) ||
+            @organizations.include?(@@organization_ids[organization_name])
     end
 
     private
@@ -173,14 +176,14 @@ class Mts
 
     def request_params
         params = uri_params.merge body_params
-        params[:app] ||= @tenants&.first
+        params[:app] ||= @organizations&.first
         params[:maxage] ||= @@maxage
         # If no name has been supplied, use path info as name
         params[:name] ||= @request.path_info[%r{/(.*)},1]
         params
     end
 
-    def tenants_from_cert
+    def organizations_from_cert
         subject = @request.get_header(@@subjectheader)
         raise ArgumentError, 'certificate missing' unless subject
         subject&.scan(%r{(?:[/,]|^)O=([^/,]+)})&.flatten
