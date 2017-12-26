@@ -48,6 +48,7 @@ organizations_dirty_cache =<<eos
 TEST_CP_NAME: dirtycache_cp_id
 eos
 
+organizations_cache_filename = 'tmp/organizations.yaml'
 default_max_age = Mts::MAXAGE_DEFAULT
 
 RSpec.describe Mts do
@@ -76,10 +77,40 @@ RSpec.describe Mts do
             it { is_expected.to include(context: params) }
         end
     end
+
+    context ':healthcheck' do
+        subject { last_response.status }
+        let (:app) do 
+            lambda { |env| Mts.healthcheck }
+        end
+        context 'when not initialized' do
+            before :each do
+                request '/'
+            end
+            it { is_expected.to be 500 }
+        end
+        context 'when initialized' do
+            before :each do
+                Mts.configure MtsConfig.merge(b: 'p')
+                request '/'
+            end
+            it { is_expected.to be 200 }
+        end
+        context 'when initialization fails' do
+            before :each do
+                stub_request(:get, "http://api.example.org")
+                    .to_return(body: '{"data": []}', status: 200)
+                Mts.configure MtsConfig
+                request '/'
+            end
+            it { is_expected.to be 500 }
+        end
+    end
+
     context 'application initialization' do
-        let (:cached_organizations) { File.read 'tmp/orid.yaml' }
+        let (:cached_organizations) { File.read organizations_cache_filename}
         before :each do
-            File.write 'tmp/orid.yaml', organizations_dirty_cache
+            File.write organizations_cache_filename, organizations_dirty_cache
         end
         context 'it initializes Ticket' do
             before :each do
@@ -103,15 +134,25 @@ RSpec.describe Mts do
                 expect(cached_organizations).to eq "---\nTVOOSTWEST: OR-w66976m\nTEST_CP_NAME: test_cp_id\n"
             end
         end
-        context 'when the org_api returns an error, it uses the org cache' do
+        context 'when the org_api returns an error' do
             before :each do
                 stub_request(:get, "http://api.example.org")
                     .to_return(body: 'error', status: 500)
-                header 'X-SSL-SUBJECT', 'O=dirtycache_cp_id'
-                request '/', params: params
             end
-            subject { last_response }
-            it_behaves_like 'valid request'
+            context 'when the cache is available' do
+                before :each do
+                    header 'X-SSL-SUBJECT', 'O=dirtycache_cp_id'
+                    request '/', params: params
+                end
+                subject { last_response }
+                it_behaves_like 'valid request'
+            end
+            context 'configuration fails when the cache file is missing' do
+                before :each do
+                    File.delete organizations_cache_filename
+                end
+                it { expect{Mts.configure MtsConfig}.to raise_error }
+            end
         end
     end
     context 'without subject header header' do
@@ -318,9 +359,9 @@ RSpec.describe Mts do
                             let (:ts_age) { 14400 + i%2 }   # absent  present absent
                             it 'requests two tickets' do
                                 expect(Ticket).to have_received(:new)
-                                .with(params.merge({maxage: default_max_age}))
+                                    .with(params.merge({maxage: default_max_age}))
                                 expect(Ticket).not_to have_received(:new)
-                                .with(params2.merge({maxage: default_max_age}))
+                                    .with(params2.merge({maxage: default_max_age}))
                             end
                             context 'response body' do
                                 it { expect(last_response.status).to eq 200 }

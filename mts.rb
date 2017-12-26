@@ -1,8 +1,5 @@
-require 'json'
-require 'yaml'
-require 'net/http'
 require 'rack'
-require 'rest-client'
+require_relative 'organizations'
 require_relative 'lib/ticket'
 require_relative 'lib/swarmbucket'
 
@@ -36,24 +33,19 @@ class Mts
 
     class << self
 
-        def healthcheck
-            if @@organization_ids && @@subjectheader
-                response2json 'OK', 200
-            else
-                response2json 'NOK', 500
-            end
-        end
+        # Class configuration and class state data is stored in class instance
+        # variables which are exposed via the attr_reader methods
+        # This to avoid class variabels
+        attr_reader :config, :organizations
 
         def configure config
-            Ticket.secrets = config['appsecrets']
-            Ticket.seed = config['appseed']
-            @@organizations_api = config["organizations_api"]
-            @@subjectheader = config['subjectheader']
-            @@maxage = config['maxage'] || MAXAGE_DEFAULT
-            @@backend = config['backend']
-            @@buckets = config['buckets']
-            @@wildcard = config['wildcard']
-            @@organization_ids = get_organization_ids
+            config = config.clone # clone the object because it will be changed
+            # Delete secrets when no longer needed.
+            Ticket.secrets = config.delete('appsecrets')
+            Ticket.seed = config.delete('appseed')
+            config['maxage'] ||= MAXAGE_DEFAULT
+            @config = config
+            @organizations = Organizations.new config["organizations_api"]
             self
         end
 
@@ -77,6 +69,17 @@ class Mts
             response2json({ error: message, status: status }, status)
         end
 
+        def healthcheck
+            if !organizations&.empty? && config['subjectheader']
+                response2json 'OK', 200
+            else
+                response2json 'NOK', 500
+            end
+        rescue => e
+            $stderr.puts e
+            response2json 'NOK', 500
+        end
+
         private
 
         def response2json body, status=200
@@ -86,45 +89,13 @@ class Mts
             response.finish
         end
 
-        def organization_id_cache
-            File.expand_path('tmp/orid.yaml', File.dirname(__FILE__))
-        end
-
-        def save_organization_ids organization_ids
-            File.write organization_id_cache, organization_ids.to_yaml
-        rescue
-            $stderr.puts 'Warning failed to write organizationt ids to cache'
-        end
-
-        def load_organization_ids
-            YAML.load_file organization_id_cache
-        end
-
-        def path organization
-            organization["cp_name"].gsub(/\W/,'').upcase
-        end
-
-        def get_organization_ids
-           response = RestClient::Request.execute(method: :get,
-                                                  url: @@organizations_api,
-                                                  timeout: 10)
-           organization_ids = JSON.parse(response.body)["data"].each_with_object({}) do |x,hash|
-               hash[path x] = x["or_id"]
-           end
-           save_organization_ids organization_ids
-           organization_ids
-        rescue StandardError => e
-            $stderr.puts "Error fetchnig organizations from #{@@organizations_api}: #{e}"
-            load_organization_ids
-        end
-
     end
 
     def initialize env
         @request = Rack::Request.new env
-        @organizations = organizations_from_cert
+        @orgs_allowed = organizations_from_cert
         raise ArgumentError,
-            'subject must have O' if @organizations.empty?
+            'subject must have O' if @orgs_allowed.empty?
         @params = request_params
         @formats = @params.delete(:format)
         raies ArgumentError 'too many parameters' if @params.length > 6
@@ -145,11 +116,19 @@ class Mts
     def authorized?
         organization_name = prefix
         return false unless organization_name
-        @organizations.include?(@@wildcard) ||
-            @organizations.include?(@@organization_ids[organization_name])
+        @orgs_allowed.include?(config['wildcard']) ||
+            @orgs_allowed.include?(organizations[organization_name])
     end
 
     private
+
+    def config
+        self.class.config
+    end
+
+    def organizations
+        self.class.organizations
+    end
 
     def split_name
         namesplit = /(.+)\.(\w+$)/.match(@params[:name])
@@ -176,15 +155,15 @@ class Mts
 
     def request_params
         params = uri_params.merge body_params
-        params[:app] ||= @organizations&.first
-        params[:maxage] ||= @@maxage
+        params[:app] ||= @orgs_allowed&.first
+        params[:maxage] ||= config['maxage']
         # If no name has been supplied, use path info as name
         params[:name] ||= @request.path_info[%r{/(.*)},1]
         params
     end
 
     def organizations_from_cert
-        subject = @request.get_header(@@subjectheader)
+        subject = @request.get_header(config['subjectheader'])
         raise ArgumentError, 'certificate missing' unless subject
         subject&.scan(%r{(?:[/,]|^)O=([^/,]+)})&.flatten
     end
@@ -204,10 +183,10 @@ class Mts
 
     def checktickets
         tickets = formats.each_with_object([]) do |type, mytickets|
-            bucket = @@buckets[type] || @@buckets[@type]
+            bucket = config['buckets'][type] || config['buckets'][@type]
             ttl = check_types(type).each_with_object([]) do |sfx, tl|
                 tl << SwarmBucket.present?(
-                    URI "http://#{@@backend}/#{bucket}/#{@basename}.#{sfx}"
+                    URI "http://#{config['backend']}/#{bucket}/#{@basename}.#{sfx}"
                 )
             end
             if ttl.all? { |tl| tl.is_a?(Integer) ? (tl&.> @params[:maxage]) : tl }
@@ -220,11 +199,11 @@ class Mts
     end
 
     def formats
-        raise ArgumentError, "unknown bucket #{@type}" unless @@buckets.keys.include?(@type)
+        raise ArgumentError, "unknown bucket #{@type}" unless config['buckets'].keys.include?(@type)
         formats = case @formats
                   when Array then @formats
                   when String then Array(@formats.split ',')
-                  else @@buckets.keys
+                  else config['buckets'].keys
                   end
         raise  ArgumentError, 'max 3 @formats elements' if formats.length > 3
         formats << @type unless formats.include?(@type)
