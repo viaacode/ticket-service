@@ -1,5 +1,5 @@
 ---
-superorid: superorg
+wildcard: superorg
 subjectheader: 'HTTP_X_SSL_SUBJECT'
 appseed: seed
 appsecrets:

@@ -12,43 +12,6 @@ buckets:
   m3u8: 'fragments'
 EOF
 
-organizations_api_body =<<eos
-{
-"data": [
-    {
-      "or_id": "OR-w66976m",
-      "cp_name": "TV-Oost West",
-      "category": "Service Provider",
-      "sector": "Cultuur",
-      "cp_name_catpro": null,
-      "contact_information": {
-        "phone": null,
-        "website": null,
-        "email": null,
-        "logoUrl": null
-      }
-    },
-    {
-      "or_id": "test_cp_id",
-      "cp_name": "test_cp_name",
-      "category": "Content Partner",
-      "sector": "Cultuur",
-      "cp_name_catpro": "AMVB",
-      "contact_information": {
-        "phone": "+32 2 209 06 01",
-        "website": "www.amvb.be/",
-        "email": "info@amvb.be",
-        "logoUrl": null
-      }
-    }
-]
-}
-eos
-organizations_dirty_cache =<<eos
-TEST_CP_NAME: dirtycache_cp_id
-eos
-
-organizations_cache_filename = 'tmp/organizations.yaml'
 default_max_age = Mts::MAXAGE_DEFAULT
 
 RSpec.describe Mts do
@@ -62,9 +25,7 @@ RSpec.describe Mts do
         allow(Ticket).to receive :seed=
         allow(Ticket).to receive :secrets=
         allow(Ticket).to receive(:new) {ticket}
-        # Mock the organization api
-        stub_request(:get, "http://api.example.org")
-           .to_return(body: organizations_api_body, status: 200)
+        allow(Organizations).to receive(:new).and_return( { 'TEST_CP_NAME' => 'test_cp_id', 'TVOOSTWEST' => 'OR-w66976m' })
     end
     shared_examples 'valid request' do |maxage|
         it { expect(Ticket).to have_received(:new)
@@ -79,10 +40,10 @@ RSpec.describe Mts do
     end
 
     context ':healthcheck' do
-        subject { last_response.status }
         let (:app) do 
             lambda { |env| Mts.healthcheck }
         end
+        subject { last_response.status }
         context 'when not initialized' do
             before :each do
                 request '/'
@@ -98,8 +59,7 @@ RSpec.describe Mts do
         end
         context 'when initialization fails' do
             before :each do
-                stub_request(:get, "http://api.example.org")
-                    .to_return(body: '{"data": []}', status: 200)
+                allow(Organizations).to receive(:new).and_return({})
                 Mts.configure MtsConfig
                 request '/'
             end
@@ -108,51 +68,17 @@ RSpec.describe Mts do
     end
 
     context 'application initialization' do
-        let (:cached_organizations) { File.read organizations_cache_filename}
         before :each do
-            File.write organizations_cache_filename, organizations_dirty_cache
+            app
         end
-        context 'it initializes Ticket' do
-            before :each do
-                app
-            end
-            it do
-                expect(Ticket).to have_received(:seed=)
-            end
-            it do
-                expect(Ticket).to have_received(:secrets=)
-            end
+        it do
+            expect(Ticket).to have_received(:seed=)
         end
-        context 'when the organizations_api is working' do
-            before :each do
-                app
-            end
-            it 'queries the org api' do
-                expect(WebMock).to have_requested(:get,  "http://api.example.org")
-            end
-            it 'writes the results to a tempoary YAML file' do
-                expect(cached_organizations).to eq "---\nTVOOSTWEST: OR-w66976m\nTEST_CP_NAME: test_cp_id\n"
-            end
+        it do
+            expect(Ticket).to have_received(:secrets=)
         end
-        context 'when the org_api returns an error' do
-            before :each do
-                stub_request(:get, "http://api.example.org")
-                    .to_return(body: 'error', status: 500)
-            end
-            context 'when the cache is available' do
-                before :each do
-                    header 'X-SSL-SUBJECT', 'O=dirtycache_cp_id'
-                    request '/', params: params
-                end
-                subject { last_response }
-                it_behaves_like 'valid request'
-            end
-            context 'configuration fails when the cache file is missing' do
-                before :each do
-                    File.delete organizations_cache_filename
-                end
-                it { expect{Mts.configure MtsConfig}.to raise_error }
-            end
+        it do
+            expect(Organizations).to have_received(:new).with("http://api.example.org")
         end
     end
     context 'without subject header header' do
