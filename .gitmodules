@@ -1,6 +1,0 @@
-[submodule "ticket"]
-	path = ticket
-	url = https://github.com/viaacode/ticket
-[submodule "swarmbucket"]
-	path = swarmbucket
-	url = http://github.com/viaacode/swarmbucket
