@@ -1,10 +1,11 @@
 FROM unicorn:latest
 
 ADD app /app
+ADD config.ru /
+ADD Gemfile /
+ADD Gemfile.lock /
 
-RUN bash -l -c "cd /app && bundle install"
+RUN bash -l -c "bundle install"
 
-RUN echo 'working_directory "/app"' >/home/unicorn/unicorn.conf
-
-CMD [ "unicorn -c /home/unicorn/unicorn.conf" ]
+CMD [ "unicorn" ]
 
