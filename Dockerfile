@@ -5,7 +5,8 @@ ADD config.ru /
 ADD Gemfile /
 ADD Gemfile.lock /
 
-RUN bash -l -c "bundle install"
+RUN bundle install --without=development
 
-CMD [ "unicorn" ]
+RUN echo "worker_processes 4" >/unicorn.conf
 
+CMD [ "-E", "production", "-c", "/unicorn.conf" ]
