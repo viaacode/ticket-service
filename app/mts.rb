@@ -97,6 +97,7 @@ class Mts
         raise ArgumentError,
             'subject must have O' if @orgs_allowed.empty?
         @params = request_params
+        $stderr.puts @params
         @formats = @params.delete(:format)
         raies ArgumentError 'too many parameters' if @params.length > 6
         if @formats
@@ -195,6 +196,7 @@ class Mts
             end
         end
         raise NotFound, "#{@basename} not found" if tickets.empty?
+        $stderr.puts tickets
         { total: tickets.length, name: @basename, results: tickets }
     end
 
