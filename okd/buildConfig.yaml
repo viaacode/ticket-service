@@ -1,0 +1,39 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  labels:
+    build: ${APP}
+    app: ${APP}
+  name: ${APP}
+spec:
+  failedBuildsHistoryLimit: 5
+  nodeSelector: null
+  output:
+    to:
+      kind: ImageStreamTag
+      name: ${APP}:latest
+  postCommit: {}
+  resources: {}
+  runPolicy: Serial
+  source:
+    git:
+      ref: ${SOURCE_REF}
+      uri: ${SOURCE_URL}
+    sourceSecret:
+      name: viaadeploy
+    type: Git
+  strategy:
+    dockerStrategy:
+      from:
+        kind: ImageStreamTag
+        name: unicorn:latest
+        namespace: viaa-tools
+    type: Docker
+  triggers:
+  - github:
+      secretReference:
+        name: ${APP}-buildtrigger
+    type: GitHub
+  - type: ConfigChange
+status:
+  lastVersion: 0
