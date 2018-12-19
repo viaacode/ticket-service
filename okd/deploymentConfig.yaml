@@ -1,7 +1,7 @@
 apiVersion: apps.openshift.io/v1
 kind: DeploymentConfig
 metadata:
-  labesl:
+  labels:
     app: ${APP}-${ENV}
   name: ${APP}-${ENV}
 spec:
