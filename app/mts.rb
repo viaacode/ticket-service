@@ -42,7 +42,6 @@ class Mts
             config = config.clone # clone the object because it will be changed
             # Delete secrets when no longer needed.
             Ticket.secrets = config.delete('appsecrets')
-            Ticket.seed = config.delete('appseed')
             config['maxage'] ||= MAXAGE_DEFAULT
             @config = config
             @organizations = Organizations.new config["organizations_api"]

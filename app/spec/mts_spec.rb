@@ -22,7 +22,6 @@ RSpec.describe Mts do
     end
     before :each do
         # Mock Ticket class
-        allow(Ticket).to receive :seed=
         allow(Ticket).to receive :secrets=
         allow(Ticket).to receive(:new) {ticket}
         allow(Organizations).to receive(:new).and_return( { 'TEST_CP_NAME' => 'test_cp_id', 'TVOOSTWEST' => 'OR-w66976m' })
@@ -40,7 +39,7 @@ RSpec.describe Mts do
     end
 
     context ':healthcheck' do
-        let (:app) do 
+        let (:app) do
             lambda { |env| Mts.healthcheck }
         end
         subject { last_response.status }
@@ -52,7 +51,7 @@ RSpec.describe Mts do
         end
         context 'when initialized' do
             before :each do
-                Mts.configure MtsConfig.merge(b: 'p')
+                Mts.configure MtsConfig #.merge(b: 'p')
                 request '/'
             end
             it { is_expected.to be 200 }
@@ -70,9 +69,6 @@ RSpec.describe Mts do
     context 'application initialization' do
         before :each do
             app
-        end
-        it do
-            expect(Ticket).to have_received(:seed=)
         end
         it do
             expect(Ticket).to have_received(:secrets=)

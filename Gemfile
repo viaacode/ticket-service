@@ -1,7 +1,7 @@
 source 'https://rubygems.org'
 gem 'rack'
 gem 'rest-client'
-gem 'json_web_token'
+gem 'jwt'
 
 group :development, optional: true do
     gem 'rack-test'
