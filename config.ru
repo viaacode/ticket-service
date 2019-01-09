@@ -8,7 +8,7 @@ healthcheck = lambda do |env|
     Mts.healthcheck
 end
 
-map('/ticket/') do
+map('/ticket/v2/') do
     run Mts
 end
 
