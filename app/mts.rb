@@ -157,7 +157,7 @@ class Mts
     def request_params
         params = uri_params.merge body_params
         params[:app] ||= @orgs_allowed&.first
-        params[:maxage] ||= config['maxage']
+        params[:maxage] = params[:maxage]&.to_i || config['maxage']
         # If no name has been supplied, use path info as name
         params[:name] ||= @request.path_info[%r{/(.*)},1]
         params
