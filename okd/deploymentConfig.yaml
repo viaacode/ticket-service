@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
       - imagePullPolicy: IfNotPresent
-        name: ${APP}
+        name: ${APP}-${ENV}-${TAG}
         ports:
         - containerPort: 8080
           protocol: TCP
@@ -62,7 +62,7 @@ spec:
         terminationMessagePolicy: File
         volumeMounts:
         - mountPath: /config.yaml
-          name: ${APP}-${ENV}-config
+          name: ${APP}-${ENV}-${TAG}-config
           readOnly: true
           subPath: config.yaml
       dnsPolicy: ClusterFirst
@@ -71,20 +71,20 @@ spec:
       securityContext: {}
       terminationGracePeriodSeconds: 45
       volumes:
-      - name: ${APP}-${ENV}-config
+      - name: ${APP}-${ENV}-${TAG}-config
         secret:
           defaultMode: 420
           items:
           - key: config.yaml
             path: config.yaml
-          secretName: ${APP}-${ENV}-config
+          secretName: ${APP}-${ENV}-${TAG}-config
   test: false
   triggers:
   - type: ConfigChange
   - imageChangeParams:
       automatic: true
       containerNames:
-      - ${APP}
+      - ${APP}-${ENV}-${TAG}
       from:
         kind: ImageStreamTag
         name: ${APP}:${TAG}

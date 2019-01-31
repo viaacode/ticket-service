@@ -15,10 +15,6 @@ parameters:
   displayName: Source Url
   name: SOURCE_URL
   required: true
-- description: Source git repository ref
-  displayName: Source Ref
-  name: SOURCE_REF
-  required: true
 - description: Healthcheck url
   displayName: Healthcheck url
   name: HEALTH_URL

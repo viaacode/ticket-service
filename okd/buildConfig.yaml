@@ -2,22 +2,22 @@ apiVersion: build.openshift.io/v1
 kind: BuildConfig
 metadata:
   labels:
-    build: ${APP}
+    build: ${APP}-${TAG}
     app: ${APP}
-  name: ${APP}
+  name: ${APP}-${TAG}
 spec:
   failedBuildsHistoryLimit: 5
   nodeSelector: null
   output:
     to:
       kind: ImageStreamTag
-      name: ${APP}:latest
+      name: ${APP}:${TAG}
   postCommit: {}
   resources: {}
   runPolicy: Serial
   source:
     git:
-      ref: ${SOURCE_REF}
+      ref: ${TAG}
       uri: ${SOURCE_URL}
     sourceSecret:
       name: viaadeploy

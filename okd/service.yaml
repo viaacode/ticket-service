@@ -2,8 +2,8 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: ${APP}-${ENV}
-  name: ${APP}-${ENV}
+    app: ${APP}-${TAG}-${ENV}
+  name: ${APP}-${TAG}-${ENV}
 spec:
   ports:
   - name: http
