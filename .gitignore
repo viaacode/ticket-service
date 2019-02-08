@@ -3,3 +3,4 @@ config.yaml
 passenger*lock
 app/tmp/**
 !/tmp
+okd/configs
