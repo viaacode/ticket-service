@@ -149,6 +149,7 @@ class Mts
     end
 
     def uri_params
+        puts @request.GET
         @request.GET.each_with_object({}) do |p,hash|
             hash[p[0].to_sym] = p[1][0,128]
         end
