@@ -35,9 +35,7 @@ GEM
     hashdiff (0.3.7)
     http-cookie (1.0.3)
       domain_name (~> 0.5)
-    json (2.1.0)
-    json_web_token (0.3.4)
-      json (~> 2.0)
+    jwt (2.1.0)
     listen (3.1.5)
       rb-fsevent (~> 0.9, >= 0.9.4)
       rb-inotify (~> 0.9, >= 0.9.7)
@@ -103,11 +101,11 @@ DEPENDENCIES
   guard-rack
   guard-rspec
   guard-shell
-  json_web_token
+  jwt
   rack
   rack-test
   rest-client
   webmock
 
 BUNDLED WITH
-   1.16.0
+   2.0.1
