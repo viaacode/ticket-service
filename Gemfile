@@ -4,6 +4,7 @@ gem 'rest-client'
 gem 'jwt'
 
 group :development, optional: true do
+    gem 'webrick'
     gem 'rack-test'
     gem "guard"
     gem "guard-rack"
