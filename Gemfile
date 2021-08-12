@@ -11,4 +11,5 @@ group :development, optional: true do
     gem "guard-shell"
     gem "guard-rspec"
     gem "webmock"
+    gem 'rspec_junit_formatter'
 end
