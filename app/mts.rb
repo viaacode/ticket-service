@@ -108,7 +108,7 @@ class Mts
         if @formats
             checktickets
         else
-            ticket = Ticket.new(@params)
+            ticket = Ticket.new(**@params)
             { jwt: ticket.jwt, context: ticket.to_hash }
         end
     end
