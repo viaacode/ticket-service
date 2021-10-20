@@ -191,7 +191,7 @@ class Mts
                 )
             end
             if ttl.all? { |tl| tl.is_a?(Integer) ? (tl&.> @params[:maxage]) : tl }
-                ticket = Ticket.new( @params.merge(name: "#{@basename}.#{type}"))
+                ticket = Ticket.new( **@params.merge(name: "#{@basename}.#{type}"))
                 mytickets << { jwt: ticket.jwt }.merge(ticket.to_hash)
             end
         end
