@@ -1,6 +1,3 @@
 [submodule "app/ticket"]
 	path = app/ticket
 	url = https://github.com/viaacode/ticket.git
-[submodule "app/swarmbucket"]
-	path = app/swarmbucket
-	url = https://github.com/viaacode/swarmbucket.git
