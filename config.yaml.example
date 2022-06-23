@@ -1,11 +1,7 @@
 ---
 wildcard: superorg
 subjectheader: 'HTTP_X_SSL_SUBJECT'
-appseed: seed
+maxage: 900
 appsecrets:
-    org1: secret
-organizations_api: http://api.example.org
-backend: objectstore.example.net
-buckets:
-  mp4: media
-  m3u8: playout
+    '0000':
+      'key': secretkey

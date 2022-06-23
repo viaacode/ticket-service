@@ -1,3 +1,4 @@
+require 'yaml'
 require 'rack'
 require_relative 'app/mts'
 
