@@ -1,7 +1,5 @@
 require 'rack'
-require_relative 'organizations'
 require_relative 'lib/ticket'
-require_relative 'lib/swarmbucket'
 
 class Mts
 
@@ -36,7 +34,7 @@ class Mts
         # Class configuration and class state data is stored in class instance
         # variables which are exposed via the attr_reader methods
         # This to avoid class variabels
-        attr_reader :config, :organizations
+        attr_reader :config
 
         def configure config
             config = config.clone # clone the object because it will be changed
@@ -44,7 +42,6 @@ class Mts
             Ticket.secrets = config.delete('appsecrets')
             config['maxage'] ||= MAXAGE_DEFAULT
             @config = config
-            @organizations = Organizations.new config["organizations_api"]
             self
         end
 
@@ -69,7 +66,7 @@ class Mts
         end
 
         def healthcheck
-            if !organizations&.empty? && config['subjectheader']
+            if config['subjectheader']
                 response2json 'OK', 200
             else
                 response2json 'NOK', 500
@@ -97,37 +94,24 @@ class Mts
             'subject must have O' if @orgs_allowed.empty?
         @params = request_params
         $stderr.puts @params
-        @formats = @params.delete(:format)
-        raies ArgumentError 'too many parameters' if @params.length > 6
-        if @formats
-            @basename, @type = split_name
-        end
+        raise ArgumentError 'too many parameters' if @params.length > 6
     end
 
     def getticket
-        if @formats
-            checktickets
-        else
-            ticket = Ticket.new(**@params)
-            { jwt: ticket.jwt, context: ticket.to_hash }
-        end
+        ticket = Ticket.new(**@params)
+        $stderr.puts ticket.to_hash
+        { jwt: ticket.jwt, context: ticket.to_hash }
     end
 
+    # Currrently allow access to all if certficate contains an O
     def authorized?
-        organization_name = prefix
-        return false unless organization_name
-        @orgs_allowed.include?(config['wildcard']) ||
-            @orgs_allowed.include?(organizations[organization_name])
+        !@orgs_allowed.empty?
     end
 
     private
 
     def config
         self.class.config
-    end
-
-    def organizations
-        self.class.organizations
     end
 
     def split_name
@@ -148,7 +132,6 @@ class Mts
     end
 
     def uri_params
-        puts @request.GET
         @request.GET.each_with_object({}) do |p,hash|
             hash[p[0].to_sym] = p[1][0,128]
         end
@@ -167,49 +150,6 @@ class Mts
         subject = @request.get_header(config['subjectheader'])
         raise ArgumentError, 'certificate missing' unless subject
         subject&.scan(%r{(?:[/,]|^)O=([^/,]+)})&.flatten
-    end
-
-    def check_types type
-        case type
-        when 'm3u8'
-            ['ts.1', 'm3u8']
-        else
-            Array type
-        end
-    end
-
-    def prefix
-        @params[:name][%r{([^/]+)/},1]
-    end
-
-    def checktickets
-        tickets = formats.each_with_object([]) do |type, mytickets|
-            bucket = config['buckets'][type] || config['buckets'][@type]
-            ttl = check_types(type).each_with_object([]) do |sfx, tl|
-                tl << SwarmBucket.present?(
-                    URI "http://#{config['backend']}/#{bucket}/#{@basename}.#{sfx}"
-                )
-            end
-            if ttl.all? { |tl| tl.is_a?(Integer) ? (tl&.> @params[:maxage]) : tl }
-                ticket = Ticket.new( **@params.merge(name: "#{@basename}.#{type}"))
-                mytickets << { jwt: ticket.jwt }.merge(ticket.to_hash)
-            end
-        end
-        raise NotFound, "#{@basename} not found" if tickets.empty?
-        $stderr.puts tickets
-        { total: tickets.length, name: @basename, results: tickets }
-    end
-
-    def formats
-        raise ArgumentError, "unknown bucket #{@type}" unless config['buckets'].keys.include?(@type)
-        formats = case @formats
-                  when Array then @formats
-                  when String then Array(@formats.split ',')
-                  else config['buckets'].keys
-                  end
-        raise  ArgumentError, 'max 3 @formats elements' if formats.length > 3
-        formats << @type unless formats.include?(@type)
-        formats
     end
 
 end
