@@ -94,13 +94,20 @@ class Mts
             'subject must have O' if @orgs_allowed.empty?
         @params = request_params
         $stderr.puts @params
-        raise ArgumentError 'too many parameters' if @params.length > 6
+        @formats = @params.delete(:format)
+        raies ArgumentError 'too many parameters' if @params.length > 6
     end
 
     def getticket
         ticket = Ticket.new(**@params)
         $stderr.puts ticket.to_hash
-        { jwt: ticket.jwt, context: ticket.to_hash }
+        # We support the format for legacy reasons but we ignore the requested
+        # formats
+        if @formats
+          return { total:1, results: [ { jwt: ticket.jwt }.merge(ticket.to_hash) ] }
+        else
+          return { jwt: ticket.jwt, context: ticket.to_hash }
+        end
     end
 
     # Currrently allow access to all if certficate contains an O

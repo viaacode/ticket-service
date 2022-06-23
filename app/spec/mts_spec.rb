@@ -201,6 +201,33 @@ RSpec.describe Mts do
                     it { is_expected.to include(error: 'subject must have O') }
                 end
             end
+            context 'with format: false' do
+                before :each do
+                    env :input, params.merge(format: false).to_json
+                    request '/'
+                end
+                it_behaves_like 'valid request'
+            end
+            # We support the format parameter for legacy reasons, but we
+            # basically ignore the requested formats
+            context "with format " do
+                before :each do
+                    allow(Ticket).to receive(:new) do |params|
+                        ticket
+                    end
+                    env :input, params.merge(format: ['m3u8','mp4']).to_json
+                    request '/'
+                end
+                subject { JSON.parse last_response.body, symbolize_names: true }
+                it { is_expected.to be_a Hash }
+                it { expect(last_response.status).to eq 200 }
+                xit { is_expected.to include(name: 'TEST_CP_NAME/n') }
+                it { is_expected.to include(total: 1) }
+                it { is_expected.to include(:results) }
+                it { expect(subject[:results].length).to eq 1 }
+                it { expect(subject[:results]).to include({jwt:'jwtok'}.merge params) }
+                it { expect(subject[:results][0][:name]).to match %r{.mp4$} }
+            end
         end
     end
 end
