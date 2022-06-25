@@ -1,0 +1,29 @@
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServerRoute
+metadata:
+  labels:
+    app: ${APP}
+    env: ${ENV}
+    app.kubernetes.io/component: ${APP}-${ENV}
+    app.kubernetes.io/instance: ${APP}-${ENV}
+    app.kubernetes.io/name: ${APP}
+    app.kubernetes.io/part-of: ${APP}
+    app.openshift.io/runtime: ${APP}
+    app.openshift.io/runtime-version: ${ENV}
+  name: ${APP}-${ENV}
+spec:
+  host: ${HOSTNAME}
+  ingressClassName: nginx-${ENV}
+  subroutes:
+  - action:
+      proxy:
+        requestHeaders:
+          set:
+          - name: X-SSL-Client-S-DN
+            value: ${XSslClientSDN}
+        upstream: ${APP}-${ENV}
+    path: /ticket
+  upstreams:
+  - name: ${APP}-${ENV}
+    port: 8080
+    service: ${APP}-${ENV}
