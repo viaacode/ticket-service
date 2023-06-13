@@ -32,8 +32,6 @@ The token is formatted as a [JSON Web token (JWT)](https://jwt.io/).
 
 ## Examples
 
-### Simple token request for an arbitrary name
-
 #### Request
 
 ```bash
@@ -63,56 +61,14 @@ curl -X GET --key mycert.key --cert mycert.cert -d '{
 }
 ```
 
-### Request with object availability check
-
-By specifying the `format`parameter, the service will check if the content for which a token is requested is available in the requested formats. It will then return an array with tokens for each format in whcih the content is available at VIAA. If the content does not exist, the response will be 404.
-
-#### Request
-
-```bash
-curl -X GET --key mycert.key --cert mycert.cert -d '{
-{
-  "app": "app1",
-  "referer": https://example.org/media/",
-  "client": "91.183.203.23"
-  "maxage": 900,
-  "format": [ "m3u8", "webm", "mp4" ]
-} http://api.example.org/ticket/media/browse.mp4
-```
-
-#### Response
-
-```json
-{
-  "total": 2,
-  "name": "example/browse",
-  "results": [
-    {
-      "jwt": "eyJhbGciOiJIUzI1NiIsImtpZCI6IjAwMDIifQ.eyJhdWQiOiJhcHAxIiwiZXhwIjoxNTYyNTgwOTI4LCJzdWIiOiJtZWRpYS9icm93c2UubTN1OCIsImlwIjoiOTEuMTgzLjIwMy4yMyIsInJlZmVyZXIiOiJodHRwczovL2V4YW1wbGUub3JnL21lZGlhLyJ9.......",
-      "app": "app1",
-      "name": "media/browse.m3u8",
-      "referer": "https://example.org/media/",
-      "client": "84.199.20.186",
-      "expiration": "2017-07-26 13:53:27 +0200"
-    },
-    {
-      "jwt": "eyJhbGciOiJIUzI1NiIsImtpZCI6IjAwMDIifQ.eyJhdWQiOiJhcHAxIiwiZXhwIjoxNTYyNTgwOTI4LCJzdWIiOiJtZWRpYS9icm93c2UubXA0IiwiaXAiOiI5MS4xODMuMjAzLjIzIiwicmVmZXJlciI6Imh0dHBzOi8vZXhhbXBsZS5vcmcvbWVkaWEvIn0.......",
-      "app": "app1",
-      "name": "media/browse.m3u8",
-      "referer": "https://example.org/media/",
-      "client": "84.199.20.186",
-      "expiration": "2017-07-26 13:53:27 +0200"
-     }
-  ]
-}
-```
-
 ## Usage
 
 The ticket attributes can be given in a JSON formatted request body, as request uri
 parameters or a combination of both.
 If the `app` or the `name` attributes are missing from the request, they are
 deduced from the certificate's first `O` attribute and the request uri respectively.
+
+`referer` is optional.
 
 Access to the service requires a signed client certificate with a DC attribute `ticket`. The `O` attributes
 of the subject restrict the mediafiles for which a ticket will be generated.
