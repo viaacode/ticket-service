@@ -1,0 +1,12 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: ${APP}-${ENV}-priv-route
+spec:
+  host: ${APP}-${ENV}.private.cloud.meemoo.be
+  path: /
+  port:
+    targetPort: http
+  to:
+    kind: Service
+    name: ${APP}-${ENV}
