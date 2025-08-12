@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+  labels:
+    meemoo.be/ingressclass: public-ingress-mtls
+  name: {APP}-${ENV}
+spec:
+  ingressClassName: openshift-public-ingress-mtls
+  rules:
+  - host: ${HOSTNAME}
+    http:
+      paths:
+      - backend:
+          service:
+            name: $(APP}-${ENV)
+            port:
+              number: 8080
+        path: /ticket
+        pathType: Prefix
+  tls:
+  - hosts:
+    - ${HOSTNAME}
+    secretName: ${HOSTNAME}-${ENV}
