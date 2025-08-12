@@ -128,7 +128,7 @@ class Mts
     end
 
     def body_params
-        body = @request.body.read(384)
+        body = @request.body&.read(384)
         return {} unless body
         bodyparams = JSON.parse(body, max_nesting: 2,
                                 allow_nan: false,

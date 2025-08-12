@@ -1,4 +1,4 @@
-FROM ruby:3
+FROM ruby:3.4.5
 
 RUN bundle config set without 'development'
 # The app's Gemfile does not contain the HTTP server gem.
@@ -14,7 +14,7 @@ RUN echo "worker_processes 4" >/unicorn.conf
 
 # At this point we have a generic unicorn container.
 ADD Gemfile /
-ADD Gemfile.lock /
+#ADD Gemfile.lock /
 RUN bundle install
 
 ADD config.ru /
