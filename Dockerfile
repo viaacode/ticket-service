@@ -1,4 +1,4 @@
-FROM ruby:3.4.5
+FROM ruby:3.4.8
 
 RUN bundle config set without 'development'
 # The app's Gemfile does not contain the HTTP server gem.
